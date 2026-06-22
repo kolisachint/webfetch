@@ -33,14 +33,16 @@ Every command returns exactly what an agent needs and nothing it doesn't:
 
 ### As an MCP server
 
+`webtools mcp` runs a hand-rolled MCP (Model Context Protocol) stdio server,
+speaking line-delimited JSON-RPC 2.0. It implements protocol version
+`2024-11-05` and exposes two tools — `fetch` (`url`, `output?`, `max_tokens?`,
+`timeout?`) and `search` (`query`, `max_results?`, `safe_search?`, `timeout?`)
+— each returning the full JSON result as text content.
+
 ```jsonc
 // e.g. in an MCP client config
 { "command": "webtools", "args": ["mcp"] }
 ```
-
-Exposes two tools — `fetch` (`url`, `output?`, `max_tokens?`, `timeout?`) and
-`search` (`query`, `max_results?`, `safe_search?`, `timeout?`) — each returning
-the full JSON result as text content.
 
 ### Offline / piped input
 
@@ -155,19 +157,42 @@ webtools fetch --url https://example.com --max-tokens 2000
 
 ## Library
 
+`webfetch` and `websearch` are available as Rust crates for embedding:
+
 ```rust
 use webfetch::types::{ContentType, FetchOptions};
+use websearch::types::SearchOptions;
 
-let opts = FetchOptions { content_type: ContentType::Text, ..Default::default() };
-
-// Offline conversion (no network):
+// ── Fetch: convert HTML without network I/O ──────────────────────────
+let opts = FetchOptions {
+    content_type: ContentType::Text,
+    ..Default::default()
+};
 let result = webfetch::convert_html(html, "https://example.com/page", &opts);
-for r in &result.references {
-    println!("[{}] {}", r.index, r.url);
-}
 
-// Or fetch + convert:
-// let result = webfetch::fetch_and_convert(FetchOptions { url: "...".into(), ..opts }).await?;
+// Access the compact content and recover URLs:
+println!("{}", result.content);          // text with [N] markers
+for r in &result.references {
+    println!("[{}] {}", r.index, r.url); // recover full URLs
+}
+println!("~{} tokens", result.token_estimate);
+
+// ── Fetch: network request with retry/backoff ────────────────────────
+let result = webfetch::fetch_and_convert(FetchOptions {
+    url: "https://docs.example.com/api".into(),
+    ..opts
+}).await?;
+
+// ── Search: zero-infrastructure DuckDuckGo Lite ─────────────────────
+let search_opts = SearchOptions {
+    query: "rust async runtime".into(),
+    max_results: Some(5),
+    ..Default::default()
+};
+let output = websearch::run_search(search_opts).await?;
+for hit in &output.results {
+    println!("{} [{}]", hit.title, hit.ref_index);
+}
 ```
 
 ## Architecture

@@ -1,0 +1,99 @@
+name: Release on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  release:
+    if: >
+      github.event.pull_request.merged == true && (
+        contains(github.event.pull_request.labels.*.name, 'cargo:patch') ||
+        contains(github.event.pull_request.labels.*.name, 'cargo:minor') ||
+        contains(github.event.pull_request.labels.*.name, 'cargo:major')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Determine release type from label
+        id: release-type
+        run: |
+          if ${{ contains(github.event.pull_request.labels.*.name, 'cargo:major') }}; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif ${{ contains(github.event.pull_request.labels.*.name, 'cargo:minor') }}; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version in Cargo.toml
+        run: |
+          # Read current version
+          CURRENT_VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current version: $CURRENT_VERSION"
+
+          # Parse semver
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # Bump based on type
+          BUMP_TYPE="${{ steps.release-type.outputs.type }}"
+          case "$BUMP_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version: $NEW_VERSION"
+
+          # Update Cargo.toml (workspace root)
+          sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml 2>/dev/null || \
+          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
+
+          # Update Cargo.toml in each crate that references the workspace version
+          for crate_dir in crates/*/; do
+            if [ -f "$crate_dir/Cargo.toml" ]; then
+              # Only update if it has version = "0.1.0" or similar
+              sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$crate_dir/Cargo.toml" 2>/dev/null || \
+              sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$crate_dir/Cargo.toml"
+            fi
+          done
+
+          # Update Cargo.lock
+          cargo update --workspace
+
+          # Store for later steps
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        run: |
+          VERSION="${{ steps.release-type.outputs.version }}"
+          git add Cargo.toml Cargo.lock crates/*/Cargo.toml
+          git commit -m "release: v${VERSION}"
+          git tag "v${VERSION}"
+
+      - name: Push version bump and tag
+        run: git push --follow-tags origin main
