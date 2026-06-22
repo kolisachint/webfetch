@@ -2133,51 +2133,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "webfetch"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "ego-tree",
- "reqwest",
- "scraper",
- "serde",
- "serde_json",
- "tokio",
- "url",
- "webfetch-core",
-]
-
-[[package]]
-name = "webfetch-core"
-version = "0.1.2"
-dependencies = [
- "once_cell",
- "regex",
- "serde",
-]
-
-[[package]]
 name = "webpki-roots"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf85cb06032201fa7c6f829d7db5a7e5aa45bcc0655327713065f6f0576731bf"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "websearch"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "reqwest",
- "scraper",
- "serde",
- "serde_json",
- "tokio",
- "url",
- "urlencoding",
- "webfetch-core",
 ]
 
 [[package]]
@@ -2188,8 +2149,47 @@ dependencies = [
  "clap",
  "serde_json",
  "tokio",
- "webfetch",
- "websearch",
+ "webtools-fetch",
+ "webtools-search",
+]
+
+[[package]]
+name = "webtools-core"
+version = "0.1.2"
+dependencies = [
+ "once_cell",
+ "regex",
+ "serde",
+]
+
+[[package]]
+name = "webtools-fetch"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "ego-tree",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+ "webtools-core",
+]
+
+[[package]]
+name = "webtools-search"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+ "urlencoding",
+ "webtools-core",
 ]
 
 [[package]]

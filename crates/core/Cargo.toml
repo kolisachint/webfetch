@@ -1,5 +1,5 @@
 [package]
-name = "webfetch-core"
+name = "webtools-core"
 version = "0.1.2"
 edition = "2021"
 description = "Shared primitives: compression, token budgeting, and reference-style URLs"
@@ -8,6 +8,9 @@ repository = "https://github.com/kolisachint/webtools"
 homepage = "https://github.com/kolisachint/webtools"
 keywords = ["token", "llm", "agent", "fetch", "url"]
 categories = ["web-programming", "text-processing"]
+
+[lib]
+name = "webfetch_core"
 
 [dependencies]
 serde = { workspace = true }
