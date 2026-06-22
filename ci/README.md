@@ -1,32 +1,8 @@
-# CI / Release workflow templates
+# CI / Release workflows
 
-These are the GitHub Actions workflows for the project. They live here rather
-than in `.github/workflows/` because the session that generated them pushed
-over an OAuth token **without `workflow` scope**, which GitHub refuses for any
-commit touching `.github/workflows/`.
-
-## Current status
-
-✅ **Workflows are now active** in `.github/workflows/`.
-
-## To activate
-
-Move all workflow files into place:
-
-```bash
-mkdir -p .github/workflows
-git mv ci/ci.yml               .github/workflows/ci.yml
-git mv ci/release.yml          .github/workflows/release.yml
-git mv ci/merge-release.yml    .github/workflows/merge-release.yml
-git commit -m "Enable CI and release workflows"
-git push
-```
-
-**Alternatively**, use the GitHub web UI:
-1. Go to your repo → Actions → New workflow
-2. Select "set up a workflow yourself"
-3. Delete the placeholder and paste the contents of each workflow file
-4. Commit via the web UI (this bypasses the OAuth scope issue)
+✅ The GitHub Actions workflows are active in `.github/workflows/`
+(`ci.yml`, `merge-release.yml`, `release.yml`). This file documents what each
+one does. There is no manual activation step.
 
 ## Workflow details
 
@@ -40,6 +16,10 @@ Runs on pushes to `main` and on PRs:
 ### `release.yml`
 
 Runs on `v*` tags (e.g. `v0.1.0`):
+- Publishes the libraries to crates.io in dependency order
+  (`webfetch-core` → `webfetch` → `websearch`), skipping any version already
+  on the index so a partial run can be retried (needs the `CRATES_IO_TOKEN`
+  secret)
 - Builds `webtools` for Linux (`x86_64-unknown-linux-gnu`) and macOS (`aarch64-apple-darwin`)
 - Packages each as a `.tar.gz` and attaches to the GitHub release
 - Generates release notes automatically

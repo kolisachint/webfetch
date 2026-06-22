@@ -1,5 +1,5 @@
 [package]
-name = "webfetch"
+name = "webtools-fetch"
 version = "0.1.2"
 edition = "2021"
 description = "Token-efficient web content fetcher with reference-style URL preservation"
@@ -8,6 +8,9 @@ repository = "https://github.com/kolisachint/webtools"
 homepage = "https://github.com/kolisachint/webtools"
 keywords = ["token", "llm", "agent", "fetch", "url"]
 categories = ["web-programming", "text-processing"]
+
+[lib]
+name = "webfetch"
 
 [dependencies]
 webfetch-core = { workspace = true }
