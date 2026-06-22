@@ -7,9 +7,29 @@ pub struct FetchResult {
     pub final_url: String,
     pub content: String,
     pub content_type: ContentType,
+    /// The detected source media kind: "html", "json", "text", or a raw
+    /// content-type for anything not rendered.
+    pub media: String,
     pub token_estimate: usize,
     pub references: Vec<UrlReference>,
+    #[serde(default)]
+    pub metadata: Metadata,
     pub source: String,
+}
+
+/// Citation-oriented page metadata, all best-effort.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Metadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub published: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lang: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub site_name: Option<String>,
 }
 
 /// A single preserved URL, recoverable by its `index`.

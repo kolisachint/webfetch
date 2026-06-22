@@ -21,8 +21,10 @@ use types::{Reference, SearchOptions, SearchOutput, SearchResult};
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
+const MAX_ATTEMPTS: u32 = 3;
 
-/// Fetch the raw DuckDuckGo Lite results page for a query.
+/// Fetch the raw DuckDuckGo Lite results page for a query, retrying transient
+/// failures (connection/timeout, 5xx, 429) with exponential backoff.
 pub async fn fetch_ddg_lite(query: &str, options: &SearchOptions) -> anyhow::Result<String> {
     let client = Client::builder()
         .timeout(Duration::from_secs(options.timeout_secs))
@@ -38,14 +40,51 @@ pub async fn fetch_ddg_lite(query: &str, options: &SearchOptions) -> anyhow::Res
         url.push_str(if safe { "&kp=1" } else { "&kp=-1" });
     }
 
-    let resp = client
-        .get(&url)
+    let mut delay = Duration::from_millis(200);
+    for attempt_no in 1..=MAX_ATTEMPTS {
+        match attempt(&client, &url).await {
+            Ok(body) => return Ok(body),
+            Err((err, transient)) => {
+                if attempt_no == MAX_ATTEMPTS || !transient {
+                    return Err(err);
+                }
+                tokio::time::sleep(delay).await;
+                delay *= 2;
+            }
+        }
+    }
+    unreachable!("loop returns on the final attempt")
+}
+
+/// One request attempt; the bool reports whether a failure is worth retrying.
+async fn attempt(client: &Client, url: &str) -> Result<String, (anyhow::Error, bool)> {
+    let resp = match client
+        .get(url)
         .header("User-Agent", USER_AGENT)
         .send()
-        .await?
-        .error_for_status()?;
-
-    Ok(resp.text().await?)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            let transient = e.is_timeout() || e.is_connect() || e.is_request();
+            return Err((e.into(), transient));
+        }
+    };
+    let status = resp.status();
+    let resp = match resp.error_for_status() {
+        Ok(r) => r,
+        Err(e) => {
+            let transient = status.is_server_error() || status.as_u16() == 429;
+            return Err((e.into(), transient));
+        }
+    };
+    match resp.text().await {
+        Ok(body) => Ok(body),
+        Err(e) => {
+            let transient = e.is_timeout();
+            Err((e.into(), transient))
+        }
+    }
 }
 
 /// Build the reference block (index → URL) from parsed results.
