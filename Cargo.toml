@@ -16,14 +16,14 @@ ego-tree = "0.6"
 urlencoding = "2.1"
 once_cell = "1.19"
 # Internal crates (path + version for crates.io publishing)
-webfetch-core = { path = "crates/core", version = "0.1.1" }
-webfetch = { path = "crates/webfetch", version = "0.1.1" }
-websearch = { path = "crates/websearch", version = "0.1.1" }
+webfetch-core = { path = "crates/core", version = "0.1.2" }
+webfetch = { path = "crates/webfetch", version = "0.1.2" }
+websearch = { path = "crates/websearch", version = "0.1.2" }
 
 # The workspace root is also the unified CLI binary.
 [package]
 name = "webtools"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Unified, token-efficient web fetch + search CLI for LLM agents"
 
