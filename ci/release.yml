@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --bin webtools --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          bin=target/${{ matrix.target }}/release/webtools
+          tar -czf webtools-${{ matrix.target }}.tar.gz -C "$(dirname "$bin")" webtools
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: webtools-${{ matrix.target }}.tar.gz
+          generate_release_notes: true
