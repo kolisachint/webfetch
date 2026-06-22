@@ -17,12 +17,17 @@ Runs on pushes to `main` and on PRs:
 
 Runs on `v*` tags (e.g. `v0.1.0`):
 - Publishes the libraries to crates.io in dependency order
-  (`webfetch-core` → `webfetch` → `websearch`), skipping any version already
-  on the index so a partial run can be retried (needs the `CRATES_IO_TOKEN`
-  secret)
-- Builds `webtools` for Linux (`x86_64-unknown-linux-gnu`) and macOS (`aarch64-apple-darwin`)
-- Packages each as a `.tar.gz` and attaches to the GitHub release
-- Generates release notes automatically
+  (`webtools-core` → `webtools-fetch` → `webtools-search`), skipping any version
+  already on the index so a partial run can be retried (needs the
+  `CRATES_IO_TOKEN` secret)
+- Creates the GitHub release with auto-generated notes
+- Builds `webtools` for seven targets (Linux gnu/musl x86_64 + aarch64, macOS
+  x86_64 + aarch64, Windows x86_64) and attaches each archive plus a per-asset
+  `.sha256`
+- Aggregates a combined `SHA256SUMS` manifest for downloaders
+
+See [`../docs/install.md`](../docs/install.md) for the asset naming table and
+checksum-verification steps.
 
 ### `merge-release.yml`
 
@@ -43,7 +48,8 @@ The recommended release process uses the `/pr` command (see `.agents/commands/pr
 1. **Agent runs `/pr patch`** (or `minor`/`major`) → Creates PR with `cargo:<bump>` label
 2. **PR gets merged** → Triggers `merge-release.yml`
 3. **Merge workflow** → Bumps version, tags, pushes
-4. **Tag push** → Triggers `release.yml` → Builds binaries
+4. **Tag push** → Triggers `release.yml` → Publishes crates, builds
+   cross-platform binaries, and uploads checksums
 
 This ensures version bumps are reviewable and tied to specific changes.
 

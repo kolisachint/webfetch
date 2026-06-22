@@ -40,32 +40,91 @@ jobs:
           publish webtools-fetch
           publish webtools-search
 
+  # Create the GitHub release once, with auto-generated notes, so the matrix
+  # build jobs can attach assets to it.
+  create-release:
+    name: Create GitHub release
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already exists"
+          else
+            gh release create "$tag" --title "$tag" --generate-notes
+          fi
+
   build:
     name: Build ${{ matrix.target }}
-    needs: [publish]
+    needs: [create-release]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - os: macos-latest
+            target: x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Builds the binary (cross-compiling where needed), archives it
+      # (.tar.gz on unix, .zip on windows), generates a per-asset .sha256,
+      # and uploads all three to the release for ${{ github.ref }}.
+      - name: Build and upload
+        uses: taiki-e/upload-rust-binary-action@v1
         with:
-          targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-      - name: Build
-        run: cargo build --release --bin webtools --target ${{ matrix.target }}
-      - name: Package
+          bin: webtools
+          target: ${{ matrix.target }}
+          archive: webtools-$target
+          checksum: sha256
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Aggregate the per-asset checksums into a single SHA256SUMS file so a
+  # downloader (e.g. an ensureTool fetcher) can verify any asset in one place.
+  checksums:
+    name: Aggregate SHA256SUMS
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Build SHA256SUMS from per-asset checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          bin=target/${{ matrix.target }}/release/webtools
-          tar -czf webtools-${{ matrix.target }}.tar.gz -C "$(dirname "$bin")" webtools
-      - name: Upload to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: webtools-${{ matrix.target }}.tar.gz
-          generate_release_notes: true
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          mkdir sums && cd sums
+          # Each archive uploaded a "<archive>.sha256" alongside it.
+          gh release download "$tag" --pattern '*.sha256' --dir .
+          # Normalize to "<hash>  <filename>" lines (drop any path prefix) and
+          # combine, sorted by filename for a stable, diffable manifest.
+          : > SHA256SUMS
+          for f in *.sha256; do
+            # A .sha256 file contains: "<hash>  <name>"; keep as-is, basename only.
+            awk '{ n = $2; sub(/.*\//, "", n); print $1 "  " n }' "$f" >> SHA256SUMS
+          done
+          sort -k2 -o SHA256SUMS SHA256SUMS
+          echo "==== SHA256SUMS ===="; cat SHA256SUMS
+          gh release upload "$tag" SHA256SUMS --clobber
