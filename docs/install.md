@@ -29,7 +29,7 @@ Each tagged release attaches one archive per platform, a per-archive
 ### Verify the download
 
 ```bash
-TAG=v0.1.4
+TAG=v0.1.14
 ASSET=webtools-x86_64-unknown-linux-gnu.tar.gz
 base="https://github.com/kolisachint/webtools/releases/download/$TAG"
 curl -fsSLO "$base/$ASSET"
@@ -141,6 +141,6 @@ attaches Linux + macOS binaries to the GitHub release. See
 Manual fallback (only if needed):
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
